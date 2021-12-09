@@ -6,7 +6,7 @@
 /*   By: yhadari <yhadari@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/12/07 13:26:21 by yhadari           #+#    #+#             */
-/*   Updated: 2021/12/08 22:48:57 by yhadari          ###   ########.fr       */
+/*   Updated: 2021/12/09 20:43:42 by yhadari          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,6 +17,7 @@
 
 typedef struct s_cmd{
     
+    int fd[2];
     int pipe;
     char *cmds[100];
 }               t_cmd;
@@ -62,6 +63,8 @@ int main(int argc, char **argv, char **envp){
         while (argv[i]){
             cmd[index].cmds[j++] = argv[i++];
             cmd[index].pipe = 0;
+            cmd[index].fd[0] = -1;
+            cmd[index].fd[1] = -1;
             if (argv[i] && (strcmp(argv[i], ";") == 0 || strcmp(argv[i], "|") == 0)){
                 if (strcmp(argv[i], "|") == 0)
                     cmd[index].pipe = 1;
@@ -71,28 +74,25 @@ int main(int argc, char **argv, char **envp){
             }
         }
         index = 0;
-        int std[2];
         int fd[2];
-        std[0] = dup(0);
-        std[1] = dup(1);
         while (*cmd[index].cmds){
+            if (cmd[index].pipe){
+                pipe(fd);
+                cmd[index].fd[1] = fd[1];
+                cmd[index+1].fd[0] = fd[0];
+            }
             f = fork();
             if (f == 0){
-                if (cmd[index].pipe){
-                    pipe(fd);
-                    dup2(fd[0], 0);
-                    dup2(fd[1], 1);
-                }
-                else{
-                    dup2(std[0], 0);
-                    dup2(std[1], 1);
-                }
+                dup2(cmd[index].fd[1], 1);
+                dup2(cmd[index].fd[0], 0);
                 execve(*cmd[index].cmds, cmd[index].cmds, envp);
             }
+            close(cmd[index].fd[1]);
+            close(cmd[index].fd[0]);
             index++;
             if (!cmd[index].pipe)
                 waitpid(f, NULL, 0);
         }
-    }        
+    }    
     return 0; 
 }
