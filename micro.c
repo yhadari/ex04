@@ -28,12 +28,15 @@ void fatal(int ret) {
 
 void    cd(t_cmd cmd){
     
-    if (cmd.size != 2)
+    if (cmd.size != 2){
         write(2, "error: cd: bad arguments\n", 25);
+        exit(1);
+    }
     else if (chdir(cmd.cmds[1]) == -1){
         write(2, "error: cd: cannot change directory to ", 38);
         write(2, cmd.cmds[1], ft_strlen(cmd.cmds[1]));
         write(2, "\n", 1);
+        exit(1);
     }
 }
 
@@ -89,7 +92,7 @@ int main(int argc, char **argv, char **envp){
             fatal(cmd[index].fd[0] != -1 && close(cmd[index].fd[0]) == -1);
         }
         if (!cmd[index].pipe)
-            fatal(waitpid(f, NULL, 0) == -1);
+            fatal(f != 0 && waitpid(f, NULL, 0) == -1);
         index++;
     }    
     return 0; 
