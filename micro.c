@@ -1,8 +1,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include <sys/wait.h>
 
 typedef struct s_cmd{
     
@@ -20,15 +18,19 @@ size_t ft_strlen(char *str){
     return i;
 }
 
+void fatal(int ret) {
+
+    if (ret){
+        write(2, "error: fatal\n", 13);
+        exit(1);
+    }
+}
+
 void    cd(t_cmd cmd){
     
-    int ret = 0;
-    
-    if (cmd.size != 2){
-        write(2, "error: cd: bad arguments", 24);
-        write(2, "\n", 1);
-    }
-    else if ((ret = chdir(cmd.cmds[1])) != 0){
+    if (cmd.size != 2)
+        write(2, "error: cd: bad arguments\n", 25);
+    else if (chdir(cmd.cmds[1]) == -1){
         write(2, "error: cd: cannot change directory to ", 38);
         write(2, cmd.cmds[1], ft_strlen(cmd.cmds[1]));
         write(2, "\n", 1);
@@ -60,7 +62,6 @@ int main(int argc, char **argv, char **envp){
         }
     }
     index = 0;
-    int ret = 0;
     int f = 0;
     int fd[2];
     while (*cmd[index].cmds){
@@ -69,27 +70,27 @@ int main(int argc, char **argv, char **envp){
         else
         {
             if (cmd[index].pipe){
-                pipe(fd);
+                    fatal(pipe(fd) == -1);
                 cmd[index].fd[1] = fd[1];
                 cmd[index+1].fd[0] = fd[0];
             }
-            f = fork();
+            fatal((f = fork()) == -1);
             if (f == 0){
-                dup2(cmd[index].fd[1], 1);
-                dup2(cmd[index].fd[0], 0);
-                if ((ret = execve(*cmd[index].cmds, cmd[index].cmds, envp)) == -1){
+                fatal(cmd[index].fd[1] != -1 && dup2(cmd[index].fd[1], 1) == -1);
+                fatal(cmd[index].fd[0] != -1 && dup2(cmd[index].fd[0], 0) == -1);
+                if (execve(*cmd[index].cmds, cmd[index].cmds, envp) == -1){
                     write(2, "error: cannot execute ", 22);
                     write(2, *cmd[index].cmds, ft_strlen(*cmd[index].cmds));
                     write(2, "\n", 1);
                 }
                 exit(0);
             }
-            close(cmd[index].fd[1]);
-            close(cmd[index].fd[0]);
+            fatal(cmd[index].fd[1] != -1 && close(cmd[index].fd[1]) == -1);
+            fatal(cmd[index].fd[0] != -1 && close(cmd[index].fd[0]) == -1);
         }
-        index++;
         if (!cmd[index].pipe)
-            waitpid(f, NULL, 0);
+            fatal(waitpid(f, NULL, 0) == -1);
+        index++;
     }    
     return 0; 
 }
